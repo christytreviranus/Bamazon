@@ -27,7 +27,7 @@ function getAllItems() {
     connection.query("SELECT * FROM products", (err, res) => {
         if (err) throw err;
 
-        //Create/Instantiate table variable for displaying database content into Table format via cli-table
+        //Create & Instantiate table variable for displaying database content into Table format via cli-table
         let table = new Table({
             head: ['ID', 'Product Name', 'Department', 'Price', 'Quantity Remaining'],
             colWidths: [10, 25, 25, 10, 25]
