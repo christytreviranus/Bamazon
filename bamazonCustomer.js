@@ -1,53 +1,97 @@
 //Dependencies
-const mysql = require("mysql");
-const inquirer = require("inquirer");
+const mysql = require('mysql');
+const inquirer = require('inquirer');
+const Table = require('cli-table');
 
-// Create the connection information for the sql database
+
+//Build connection to database and connect
 const connection = mysql.createConnection({
     host: "localhost",
     port: 3306,
     user: "root",
-    password: "",
+    password: "Wolfg@ng2",
     database: "bamazon"
-  });
-
-//Connect to the database
-connection.connect(function(err){
-    if (err) throw err;
-    console.log("Server connected as id: " + connection.threadId);
-    queryAllItems();
 });
 
-//Function for querying database for items
-function queryAllItems(){
-    connection.query("SELECT * FROM products", function(err, res){
-        for (let i = 0; i < res.length; i++){
-            console.log(res[i].item_id + " | " + res[i].product_name + " | " + res[i].department_name + " | " + res[i].price);
+connection.connect((err) => {
+    if (err) throw err;
+    console.log("You are connected to the database! Connection id: " + connection.threadId);
+    console.log("Welcome to the Bamazon Marketplace!  Check out our inventory: ")
+    //Call getAllItems to Display
+    getAllItems();
+});
+
+
+//Function for displaying all products from the database into table
+function getAllItems() {
+    connection.query("SELECT * FROM products", (err, res) => {
+        if (err) throw err;
+
+        //Create/Instantiate table variable for displaying database content into Table format via cli-table
+        let table = new Table({
+            head: ['ID', 'Product Name', 'Department', 'Price', 'Quantity Remaining'],
+            colWidths: [10, 25, 25, 10, 25]
+        });
+        for(let i = 0; i < res.length; i++){
+            table.push(
+                [res[i].item_id, res[i].product_name, res[i].department_name, res[i].price, res[i].stock_quantity]
+            );
         }
-        console.log("-----------------------------------");
-        purchasePrompt();
+        console.log(table.toString());
+        //Call to purchasing prompt to ask user what they want to purchase
+        purchasingPrompt(); 
     });
 }
 
-//Function for customers to purchase items
-function purchasePrompt(){
+//Function for prompt with inquirer to purchase items
+function purchasingPrompt(){
     inquirer.prompt([
         {
-        type: 'input',
-        name: 'item_id',
-        message: 'Please enter the item_id that you would like to purchase: ',
-        filter: Number,
-        validate: validateData
+            //prompt for item to be purchase object
+            name: "item_id",
+            type: "input",
+            message: "Please enter the ID of the item you wish to purchase today: ",
+            filter: Number,
+            validate: validateData
         },
         {
-        type: 'input',
-        name: 'stock_quantity',
-        message: 'Please enter the quantity you would like to purchase: ',
-        filter: Number,
-        validate: validateData   
+            //prompt for quantity of item to be purchased object
+            name: "stock_quantity",
+            type: "input",
+            message: "Please enter your purchase quantity for the selected item:",
+            filter: Number,
+            validate: validateData
         }
-    ])
-}
+    ]).then(function(input){
+        let item = input.item_id;
+        let quantity = input.stock_quantity;
+        purchaseOrder(item, quantity);
+    });
+    };
+
+//Purchase Function
+function purchaseOrder(item, quantity){
+    connection.query("SELECT * FROM products WHERE item_id =" + item, (err, res) =>{
+        if (err) throw err;
+        if(quantity <= res[0].stock_quantity){
+            let tCost = quantity * res[0].price;
+            console.log("Good news!  We are able to fulfill your order!");
+            console.log("The total cost is $" + tCost + " for your order of " + quantity + " " + res[0].product_name + "(s)");
+            //Update database with new inventory stock_quantity
+            connection.query("UPDATE products SET ? WHERE ?", [ 
+                {
+                    stock_quantity: res[0].stock_quantity - quantity,
+                },
+                {
+                    item_id: item
+                }
+            ]);
+        } else {
+            console.log("Oops! Looks like we don't have enough in stock to fulfill your order for " + res[0].product_name + ". Try placing another order.");
+        };
+        getAllItems();
+    });
+};
 
 //Prevent negative integer quantities
 function validateData(value){
@@ -60,8 +104,3 @@ function validateData(value){
         return "Please enter a number greater than 0."
     }
 }
-
-
-
-
-  
